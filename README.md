@@ -2,7 +2,7 @@
 
 **Marketplace API micropayment onchain — bayar per-request pakai x402 di Monad.**
 
-🔗 **Live demo:** _(belum di-deploy ke Vercel — coming soon)_
+🔗 **Live demo:** https://monad-blitz-rosy.vercel.app
 
 Dibuat untuk **Monad Blitz Hackathon**.
 
