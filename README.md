@@ -24,13 +24,19 @@ Dibuat untuk **Monad Blitz Hackathon**.
 
 Semua endpoint diproteksi [x402](https://docs.monad.xyz/guides/x402) scheme `exact` — request tanpa pembayaran akan dibalas `402 Payment Required`.
 
-## Contract
+## Smart Contract
 
 Onchain registry (`ApiRegistry.sol`) mencatat endpoint, harga, dan jumlah call — dipakai dashboard buat baca data & live feed.
 
 - **Address:** `0x343676948a62279c5a44d33e545dac90d467a0cf`
 - **Explorer:** https://testnet.monadexplorer.com/address/0x343676948a62279c5a44d33e545dac90d467a0cf
 - **Network:** Monad Testnet (chain id `10143`)
+- **Solidity:** `pragma solidity ^0.8.24;` — dikompilasi pakai `solc` `0.8.36` (optimizer on, 200 runs)
+- **Ukuran:** 65 baris (`contracts/ApiRegistry.sol`)
+- **Deploy tooling:** compile in-process via package npm `solc` (`scripts/compile.ts`), deploy pakai `viem` (`createWalletClient().deployContract()`) lewat script custom `scripts/deploy.ts` (`npm run deploy`) — tanpa Hardhat/Foundry
+- **Event yang di-emit:**
+  - `EndpointRegistered(uint256 indexed id, string path, uint256 priceMicro)`
+  - `CallPaid(uint256 indexed id, address indexed payer, uint256 priceMicro)`
 
 ## Kenapa butuh Monad?
 
