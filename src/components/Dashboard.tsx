@@ -122,6 +122,12 @@ export function Dashboard() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Link
+            href="/try"
+            className="rounded-xl border border-accent/40 bg-accent-soft px-5 py-3 text-sm font-medium text-accent transition-colors hover:border-accent"
+          >
+            Coba bayar sendiri →
+          </Link>
+          <Link
             href="/agent"
             className="rounded-xl border border-accent/40 bg-accent-soft px-5 py-3 text-sm font-medium text-accent transition-colors hover:border-accent"
           >

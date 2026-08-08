@@ -32,6 +32,41 @@ const ERC20_BALANCE_ABI = [
   },
 ] as const;
 
+const CONNECT_TIMEOUT_MS = 20000;
+
+class ConnectTimeoutError extends Error {
+  constructor() {
+    super("Connect timed out");
+    this.name = "ConnectTimeoutError";
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new ConnectTimeoutError()), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+// EIP-1193 user-rejection is code 4001, but wagmi/viem sometimes wrap it
+// (e.g. in `.cause`) rather than surfacing it directly, so check both plus
+// a message fallback.
+function isUserRejection(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const err = error as { code?: number; cause?: { code?: number }; message?: string };
+  if (err.code === 4001 || err.cause?.code === 4001) return true;
+  return /user rejected|user denied/i.test(err.message ?? "");
+}
+
 export function TryPage() {
   const [queryClient] = useState(() => new QueryClient());
   return (
@@ -46,10 +81,43 @@ export function TryPage() {
 function TryApp() {
   const { address, isConnected, chainId } = useConnection();
   const connectors = useConnectors();
-  const { mutate: connect, isPending: connecting, error: connectError } = useConnect();
+  const { mutateAsync: connectAsync } = useConnect();
   const { mutate: switchChain, isPending: switching } = useSwitchChain();
   const { mutate: disconnect } = useDisconnect();
   const { data: walletClient } = useWalletClient();
+
+  // Driven locally instead of useConnect()'s isPending: if the injected
+  // connector's underlying request hangs (no popup, no response — the bug
+  // this fixes), wagmi/react-query never sees a resolve or reject, so its
+  // own isPending would stay stuck forever too. This state is guaranteed
+  // to reset via the timeout race below regardless of what the connector
+  // actually does.
+  const [connecting, setConnecting] = useState(false);
+  const [connectMessage, setConnectMessage] = useState<string | null>(null);
+
+  async function handleConnect() {
+    if (connecting) return;
+    setConnecting(true);
+    setConnectMessage(null);
+
+    try {
+      await withTimeout(connectAsync({ connector: connectors[0], chainId: monadTestnet.id }), CONNECT_TIMEOUT_MS);
+    } catch (error) {
+      console.error("[try] wallet connect failed:", error);
+
+      if (error instanceof ConnectTimeoutError) {
+        setConnectMessage(
+          "Wallet tidak merespons — cek ikon extension di toolbar browser, mungkin ada popup menunggu.",
+        );
+      } else if (isUserRejection(error)) {
+        setConnectMessage("Koneksi dibatalkan.");
+      } else {
+        setConnectMessage(error instanceof Error ? error.message : String(error));
+      }
+    } finally {
+      setConnecting(false);
+    }
+  }
 
   const onWrongChain = isConnected && chainId !== monadTestnet.id;
 
@@ -128,13 +196,13 @@ function TryApp() {
               </p>
             )}
             <button
-              onClick={() => connect({ connector: connectors[0], chainId: monadTestnet.id })}
+              onClick={handleConnect}
               disabled={connectors.length === 0 || connecting}
               className="self-start rounded-2xl bg-accent px-8 py-4 text-lg font-semibold text-white transition-colors hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
             >
               {connecting ? "Menghubungkan…" : "Connect Wallet"}
             </button>
-            {connectError && <p className="text-sm text-red-300">{connectError.message}</p>}
+            {connectMessage && <p className="text-sm text-red-300">{connectMessage}</p>}
           </div>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-4">
