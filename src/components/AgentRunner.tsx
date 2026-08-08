@@ -147,7 +147,7 @@ export function AgentRunner() {
             if (e.key === "Enter") run();
           }}
           disabled={running}
-          placeholder="Masukkan teks / simbol untuk diproses agent..."
+          placeholder="Beri tugas ke agent... (contoh: ringkas berita ini dan cek harga MON)"
           className="card flex-1 px-5 py-4 text-lg text-foreground placeholder:text-muted focus:border-accent/50 focus:outline-none disabled:opacity-60"
         />
         <button
@@ -155,7 +155,7 @@ export function AgentRunner() {
           disabled={running || !input.trim()}
           className="rounded-2xl bg-accent px-8 py-4 text-lg font-semibold text-white transition-colors hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {running ? "Running…" : "Run agent"}
+          {running ? "Running…" : "Kasih tugas ke agent"}
         </button>
       </section>
 
@@ -164,8 +164,8 @@ export function AgentRunner() {
           <div>
             <h2 className="stat-label">Burst</h2>
             <p className="mt-2 text-base text-muted">
-              Panggil <code className="font-mono text-foreground">/api/price</code> 100x paralel (batch 10),
-              masing-masing bayar x402.
+              Panggil <code className="font-mono text-foreground">/api/price</code> 100x (concurrency 4, retry 2x
+              per call), masing-masing bayar x402.
             </p>
           </div>
           <button
@@ -186,15 +186,16 @@ export function AgentRunner() {
               />
             </div>
             <div className="flex flex-wrap items-center gap-5 font-mono text-sm tabular-nums text-muted">
-              <span className="text-foreground">
-                {burst.completed} / {burst.total}
-              </span>
-              <span className="text-emerald-300">{burst.succeeded} ok</span>
-              {burst.failed > 0 && <span className="text-red-300">{burst.failed} failed</span>}
-              {!burst.running && burst.completed === burst.total && (
-                <span className="text-accent">✓ Selesai</span>
-              )}
+              <span className="text-emerald-300">sukses {burst.succeeded}</span>
+              <span className="text-red-300">gagal {burst.failed}</span>
+              <span className="text-muted">sisa {burst.total - burst.completed}</span>
             </div>
+            {!burst.running && burst.completed === burst.total && (
+              <p className="font-mono text-sm text-accent">
+                ✓ Selesai — {burst.succeeded} / {burst.total} benar-benar berhasil
+                {burst.failed > 0 && ` (${burst.failed} gagal setelah retry)`}.
+              </p>
+            )}
           </div>
         )}
       </section>
