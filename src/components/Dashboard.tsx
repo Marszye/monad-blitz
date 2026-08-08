@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { API_REGISTRY_ABI, API_REGISTRY_ADDRESS } from "@/lib/contract";
-import { publicClient } from "@/lib/publicClient";
+import { API_REGISTRY_ADDRESS } from "@/lib/contract";
 import { EXPLORER_URL } from "@/lib/chain";
 import { formatAddress, formatCount, formatTime, formatUsdMicro } from "@/lib/format";
+import type { StatsPayload } from "@/lib/statsTypes";
 
 interface EndpointRow {
   id: bigint;
@@ -23,106 +23,78 @@ interface FeedEntry {
   receivedAt: Date;
 }
 
-const MAX_FEED_ENTRIES = 25;
+// Reads live entirely through /api/stats (server-side, one shared RPC
+// connection cached for all visitors) instead of hitting the public RPC
+// directly from every browser — see /api/stats/route.ts for why.
+const POLL_INTERVAL_MS = 5000;
 
 export function Dashboard() {
   const [endpoints, setEndpoints] = useState<EndpointRow[] | null>(null);
   const [globalCalls, setGlobalCalls] = useState<bigint>(BigInt(0));
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [live, setLive] = useState(false);
-
-  const endpointsRef = useRef<EndpointRow[]>([]);
-  useEffect(() => {
-    endpointsRef.current = endpoints ?? [];
-  }, [endpoints]);
+  const [loaded, setLoaded] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
 
-    async function load() {
+    async function poll() {
       try {
-        const count = await publicClient.readContract({
-          address: API_REGISTRY_ADDRESS,
-          abi: API_REGISTRY_ABI,
-          functionName: "endpointCount",
-        });
-
-        const ids = Array.from({ length: Number(count) }, (_, i) => BigInt(i));
-        const rows = await Promise.all(
-          ids.map(async (id) => {
-            const [path, priceMicro, callCount] = await publicClient.readContract({
-              address: API_REGISTRY_ADDRESS,
-              abi: API_REGISTRY_ABI,
-              functionName: "getEndpoint",
-              args: [id],
-            });
-            const row: EndpointRow = { id, path, priceMicro, callCount };
-            return row;
-          }),
-        );
-
-        const total = await publicClient.readContract({
-          address: API_REGISTRY_ADDRESS,
-          abi: API_REGISTRY_ABI,
-          functionName: "globalCalls",
-        });
-
+        const res = await fetch("/api/stats", { cache: "no-store" });
+        const data = (await res.json()) as StatsPayload;
         if (cancelled) return;
-        setEndpoints(rows);
-        setGlobalCalls(total);
-        setLive(true);
-      } catch (err) {
-        if (!cancelled) {
-          console.error("Failed to load ApiRegistry state:", err);
-          setError("Gagal membaca data dari contract. Cek koneksi RPC.");
+
+        if (data.ok) {
+          setEndpoints(
+            data.endpoints.map((e) => ({
+              id: BigInt(e.id),
+              path: e.path,
+              priceMicro: BigInt(e.priceMicro),
+              callCount: BigInt(e.callCount),
+            })),
+          );
+          setGlobalCalls(BigInt(data.globalCalls));
+          setFeed(
+            data.feed.map((f) => ({
+              key: f.key,
+              path: f.path,
+              payer: f.payer as `0x${string}`,
+              priceMicro: BigInt(f.priceMicro),
+              txHash: f.txHash as `0x${string}`,
+              receivedAt: new Date(f.observedAt),
+            })),
+          );
+          hasLoadedRef.current = true;
+          setLoaded(true);
+          setReconnecting(false);
+          setError(null);
+        } else {
+          // RPC refresh failed (even after retries) — keep whatever we
+          // already rendered on screen instead of dropping to 0, and only
+          // surface a hard error if we've never loaded real data at all.
+          setReconnecting(true);
+          if (!hasLoadedRef.current) setError(data.error ?? "RPC belum merespons.");
         }
+      } catch (err) {
+        if (cancelled) return;
+        setReconnecting(true);
+        if (!hasLoadedRef.current) setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        if (!cancelled) timer = setTimeout(poll, POLL_INTERVAL_MS);
       }
     }
 
-    load();
+    poll();
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, []);
 
-  useEffect(() => {
-    const unwatch = publicClient.watchContractEvent({
-      address: API_REGISTRY_ADDRESS,
-      abi: API_REGISTRY_ABI,
-      eventName: "CallPaid",
-      pollingInterval: 2000,
-      onLogs: (logs) => {
-        setLive(true);
-        for (const log of logs) {
-          const { id, payer, priceMicro } = log.args;
-          if (id === undefined || payer === undefined || priceMicro === undefined) continue;
-
-          const path = endpointsRef.current.find((e) => e.id === id)?.path ?? `#${id}`;
-
-          setEndpoints((prev) =>
-            prev ? prev.map((e) => (e.id === id ? { ...e, callCount: e.callCount + BigInt(1) } : e)) : prev,
-          );
-          setGlobalCalls((prev) => prev + BigInt(1));
-          setFeed((prev) => {
-            const entry: FeedEntry = {
-              key: `${log.transactionHash}-${log.logIndex}`,
-              path,
-              payer,
-              priceMicro,
-              txHash: log.transactionHash,
-              receivedAt: new Date(),
-            };
-            return [entry, ...prev].slice(0, MAX_FEED_ENTRIES);
-          });
-        }
-      },
-      onError: (err) => {
-        console.error("watchContractEvent error:", err);
-      },
-    });
-    return () => unwatch();
-  }, []);
+  const live = loaded && !reconnecting;
 
   const totalRevenueMicro = useMemo(() => {
     if (!endpoints) return BigInt(0);
@@ -135,10 +107,12 @@ export function Dashboard() {
         <div>
           <div className="flex items-center gap-2.5">
             <span
-              className={`h-2 w-2 rounded-full ${live ? "bg-accent animate-pulse-dot" : "bg-muted"}`}
+              className={`h-2 w-2 rounded-full ${
+                live ? "bg-accent animate-pulse-dot" : loaded ? "bg-amber-400 animate-pulse-dot" : "bg-muted"
+              }`}
             />
             <span className="stat-label">
-              {live ? "Live" : "Connecting"} · Monad Testnet
+              {loaded ? (live ? "Live" : "Reconnecting") : "Connecting"} · Monad Testnet
             </span>
           </div>
           <h1 className="mt-4 text-5xl font-semibold tracking-tight md:text-6xl">
@@ -171,8 +145,18 @@ export function Dashboard() {
       )}
 
       <section className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        <StatTile label="Total calls" value={formatCount(globalCalls)} accent="calls" />
-        <StatTile label="Total revenue" value={formatUsdMicro(totalRevenueMicro)} accent="revenue" />
+        <StatTile
+          label="Total calls"
+          value={loaded ? formatCount(globalCalls) : "—"}
+          accent="calls"
+          reconnecting={reconnecting && loaded}
+        />
+        <StatTile
+          label="Total revenue"
+          value={loaded ? formatUsdMicro(totalRevenueMicro) : "—"}
+          accent="revenue"
+          reconnecting={reconnecting && loaded}
+        />
       </section>
 
       <section className="flex flex-col gap-6">
@@ -258,10 +242,23 @@ export function Dashboard() {
   );
 }
 
-function StatTile({ label, value, accent }: { label: string; value: string; accent: "calls" | "revenue" }) {
+function StatTile({
+  label,
+  value,
+  accent,
+  reconnecting,
+}: {
+  label: string;
+  value: string;
+  accent: "calls" | "revenue";
+  reconnecting: boolean;
+}) {
   return (
     <div className="card px-8 py-10 md:px-10 md:py-12">
-      <p className="stat-label">{label}</p>
+      <div className="flex items-center gap-2.5">
+        <p className="stat-label">{label}</p>
+        {reconnecting && <span className="stat-label text-amber-400">· reconnecting</span>}
+      </div>
       <p
         className={`stat-value mt-4 text-7xl md:text-8xl ${
           accent === "revenue" ? "text-accent-revenue" : "text-accent"
