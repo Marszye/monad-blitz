@@ -130,26 +130,26 @@ export function Dashboard() {
   }, [endpoints]);
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-10 px-6 py-10 md:gap-14 md:px-12 md:py-14">
+    <main className="mx-auto flex w-full max-w-[1100px] flex-col gap-16 px-6 py-20 md:px-10">
       <header className="flex flex-wrap items-start justify-between gap-6">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <span
-              className={`h-3 w-3 rounded-full ${live ? "bg-accent animate-pulse-dot" : "bg-muted"}`}
+              className={`h-2 w-2 rounded-full ${live ? "bg-accent animate-pulse-dot" : "bg-muted"}`}
             />
-            <span className="text-sm font-medium uppercase tracking-[0.2em] text-muted">
+            <span className="stat-label">
               {live ? "Live" : "Connecting"} · Monad Testnet
             </span>
           </div>
-          <h1 className="mt-3 text-5xl font-black tracking-tight md:text-7xl">
-            Sat<span className="text-accent-strong">Set</span>
+          <h1 className="mt-4 text-5xl font-semibold tracking-tight md:text-6xl">
+            Sat<span className="text-accent">Set</span>
           </h1>
-          <p className="mt-2 text-lg text-muted">Provider dashboard — x402 API marketplace</p>
+          <p className="mt-3 text-lg text-muted">Provider dashboard — x402 API marketplace</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/agent"
-            className="rounded-xl border border-accent/50 bg-accent-soft px-5 py-3 text-sm font-semibold text-accent-strong transition-colors hover:border-accent"
+            className="rounded-xl border border-accent/40 bg-accent-soft px-5 py-3 text-sm font-medium text-accent transition-colors hover:border-accent"
           >
             Run agent →
           </Link>
@@ -157,7 +157,7 @@ export function Dashboard() {
             href={`${EXPLORER_URL}/address/${API_REGISTRY_ADDRESS}`}
             target="_blank"
             rel="noreferrer"
-            className="rounded-xl border border-border bg-surface px-5 py-3 font-mono text-sm text-muted transition-colors hover:border-accent hover:text-accent-strong"
+            className="card px-5 py-3 font-mono text-sm text-muted transition-colors hover:text-accent"
           >
             {formatAddress(API_REGISTRY_ADDRESS)} ↗
           </a>
@@ -171,33 +171,33 @@ export function Dashboard() {
       )}
 
       <section className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        <StatTile label="Total calls" value={formatCount(globalCalls)} />
-        <StatTile label="Total revenue" value={formatUsdMicro(totalRevenueMicro)} />
+        <StatTile label="Total calls" value={formatCount(globalCalls)} accent="calls" />
+        <StatTile label="Total revenue" value={formatUsdMicro(totalRevenueMicro)} accent="revenue" />
       </section>
 
-      <section>
-        <h2 className="mb-4 text-2xl font-bold">Endpoints</h2>
-        <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
+      <section className="flex flex-col gap-6">
+        <h2 className="stat-label">Endpoints</h2>
+        <div className="card overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-border text-sm uppercase tracking-wide text-muted">
-                <th className="px-6 py-4 font-medium">Path</th>
-                <th className="px-6 py-4 font-medium">Price</th>
-                <th className="px-6 py-4 font-medium">Total calls</th>
-                <th className="px-6 py-4 font-medium">Revenue</th>
+              <tr>
+                <th className="px-8 py-5 stat-label font-medium">Path</th>
+                <th className="px-8 py-5 stat-label font-medium">Price</th>
+                <th className="px-8 py-5 stat-label font-medium">Total calls</th>
+                <th className="px-8 py-5 stat-label font-medium">Revenue</th>
               </tr>
             </thead>
             <tbody className="tabular-nums">
               {endpoints === null && !error && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-10 text-center text-muted">
+                  <td colSpan={4} className="px-8 py-10 text-center text-muted">
                     Loading…
                   </td>
                 </tr>
               )}
               {endpoints?.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-10 text-center text-muted">
+                  <td colSpan={4} className="px-8 py-10 text-center text-muted">
                     Belum ada endpoint terdaftar.
                   </td>
                 </tr>
@@ -205,12 +205,12 @@ export function Dashboard() {
               {endpoints?.map((e) => (
                 <tr
                   key={e.id.toString()}
-                  className="border-b border-border/60 transition-colors last:border-0 hover:bg-surface-2/60"
+                  className="h-16 border-t border-divider transition-colors hover:bg-white/[0.02]"
                 >
-                  <td className="px-6 py-5 font-mono text-base">{e.path}</td>
-                  <td className="px-6 py-5">{formatUsdMicro(e.priceMicro)}</td>
-                  <td className="px-6 py-5">{formatCount(e.callCount)}</td>
-                  <td className="px-6 py-5 font-semibold text-accent-strong">
+                  <td className="px-8 font-mono text-base">{e.path}</td>
+                  <td className="px-8 text-foreground/90">{formatUsdMicro(e.priceMicro)}</td>
+                  <td className="px-8 text-foreground/90">{formatCount(e.callCount)}</td>
+                  <td className="px-8 font-semibold text-accent-revenue">
                     {formatUsdMicro(e.priceMicro * e.callCount)}
                   </td>
                 </tr>
@@ -220,23 +220,26 @@ export function Dashboard() {
         </div>
       </section>
 
-      <section>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Live feed</h2>
-          <span className="text-sm text-muted">CallPaid events</span>
+      <section className="flex flex-col gap-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="h-2 w-2 rounded-full bg-accent animate-pulse-dot" />
+            <h2 className="stat-label">Live feed</h2>
+          </div>
+          <span className="stat-label">CallPaid events</span>
         </div>
-        <div className="max-h-[480px] divide-y divide-border/60 overflow-y-auto rounded-2xl border border-border bg-surface">
+        <div className="card max-h-[480px] divide-y divide-divider overflow-y-auto">
           {feed.length === 0 && (
-            <p className="px-6 py-10 text-center text-muted">Menunggu pembayaran pertama…</p>
+            <p className="px-8 py-10 text-center text-muted">Menunggu pembayaran pertama…</p>
           )}
           {feed.map((entry) => (
-            <div key={entry.key} className="animate-row-in flex flex-wrap items-center gap-4 px-6 py-4">
-              <span className="w-20 shrink-0 font-mono text-xs tabular-nums text-muted">
+            <div key={entry.key} className="animate-row-in flex flex-wrap items-center gap-4 px-8 py-5 font-mono">
+              <span className="w-20 shrink-0 text-xs tabular-nums text-muted">
                 {formatTime(entry.receivedAt)}
               </span>
-              <span className="font-mono text-sm text-foreground">{entry.path}</span>
-              <span className="font-mono text-sm text-muted">{formatAddress(entry.payer)}</span>
-              <span className="ml-auto font-semibold text-accent-strong">
+              <span className="text-sm text-foreground">{entry.path}</span>
+              <span className="text-sm text-muted">{formatAddress(entry.payer)}</span>
+              <span className="ml-auto font-sans font-semibold text-accent-revenue">
                 {formatUsdMicro(entry.priceMicro)}
               </span>
               <a
@@ -245,7 +248,7 @@ export function Dashboard() {
                 rel="noreferrer"
                 className="text-sm text-accent underline decoration-accent/40 hover:text-accent-strong"
               >
-                View tx ↗
+                {formatAddress(entry.txHash)} ↗
               </a>
             </div>
           ))}
@@ -255,12 +258,17 @@ export function Dashboard() {
   );
 }
 
-function StatTile({ label, value }: { label: string; value: string }) {
+function StatTile({ label, value, accent }: { label: string; value: string; accent: "calls" | "revenue" }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-border bg-surface px-8 py-10">
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-accent via-accent-strong to-accent" />
-      <p className="text-sm uppercase tracking-[0.2em] text-muted">{label}</p>
-      <p className="mt-3 text-6xl font-black tracking-tight text-foreground md:text-8xl">{value}</p>
+    <div className="card px-8 py-10 md:px-10 md:py-12">
+      <p className="stat-label">{label}</p>
+      <p
+        className={`stat-value mt-4 text-7xl md:text-8xl ${
+          accent === "revenue" ? "text-accent-revenue" : "text-accent"
+        }`}
+      >
+        {value}
+      </p>
     </div>
   );
 }

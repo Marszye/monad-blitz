@@ -2,15 +2,17 @@
 
 :root {
   color-scheme: dark;
-  --background: #08060f;
-  --surface: #130f22;
-  --surface-2: #1a1530;
-  --foreground: #ffffff;
-  --muted: #a79fc9;
-  --border: rgba(255, 255, 255, 0.09);
-  --accent: #8c6cf9;
-  --accent-strong: #a78bfa;
-  --accent-soft: rgba(140, 108, 249, 0.14);
+  --background: #0e100f;
+  --surface: rgba(255, 255, 255, 0.025);
+  --surface-2: rgba(255, 255, 255, 0.045);
+  --foreground: #fbfaf9;
+  --muted: rgba(251, 250, 249, 0.4);
+  --border: rgba(255, 255, 255, 0.07);
+  --divider: rgba(255, 255, 255, 0.06);
+  --accent: #836ef9;
+  --accent-strong: #9c89fb;
+  --accent-soft: rgba(131, 110, 249, 0.14);
+  --accent-revenue: #a0055d;
 }
 
 @theme inline {
@@ -20,21 +22,59 @@
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-border: var(--border);
+  --color-divider: var(--divider);
   --color-accent: var(--accent);
   --color-accent-strong: var(--accent-strong);
   --color-accent-soft: var(--accent-soft);
-  --font-sans: var(--font-geist-sans);
+  --color-accent-revenue: var(--accent-revenue);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Layered background: base color (on body) + faded grid + top-center glow. */
+.bg-glow {
+  background-image: radial-gradient(ellipse 60% 45% at 50% -5%, rgba(131, 110, 249, 0.18), transparent 70%);
+}
+
+.bg-grid {
   background-image:
-    radial-gradient(ellipse 80% 60% at 15% -10%, rgba(140, 108, 249, 0.22), transparent),
-    radial-gradient(ellipse 60% 50% at 100% 0%, rgba(140, 108, 249, 0.12), transparent);
-  background-attachment: fixed;
+    linear-gradient(rgba(131, 110, 249, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(131, 110, 249, 0.055) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 85% 65% at 50% 20%, black 0%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse 85% 65% at 50% 20%, black 0%, transparent 80%);
+}
+
+/* Glass card: base surface for all panels/tiles. */
+.card {
+  background: var(--surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 24px 48px -24px rgba(0, 0, 0, 0.9);
+}
+
+.stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.stat-value {
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 @keyframes pulse-dot {
@@ -44,15 +84,15 @@ body {
     transform: scale(1);
   }
   50% {
-    opacity: 0.4;
-    transform: scale(0.75);
+    opacity: 0.35;
+    transform: scale(0.8);
   }
 }
 
 @keyframes row-in {
   from {
     opacity: 0;
-    transform: translateY(-6px);
+    transform: translateY(-8px);
   }
   to {
     opacity: 1;
@@ -61,9 +101,9 @@ body {
 }
 
 .animate-pulse-dot {
-  animation: pulse-dot 1.4s ease-in-out infinite;
+  animation: pulse-dot 2s ease-in-out infinite;
 }
 
 .animate-row-in {
-  animation: row-in 0.4s ease-out;
+  animation: row-in 200ms ease-out;
 }
